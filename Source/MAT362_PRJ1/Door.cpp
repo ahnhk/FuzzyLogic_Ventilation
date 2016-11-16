@@ -93,10 +93,11 @@ int NominalToScale(MembershipFunction functions[], int offset, float value)
 float FindMinFiringPoint(MembershipFunction functions[], int offset, float values[])
 {
 	float min = FLT_MAX;
+	int numOfFuzzySets = sizeof(values) / sizeof(float);
 
-	for (int i = 0; i < 2; ++i)
+	for (int i = 0; i < numOfFuzzySets; ++i) // iterate from A to number of fuzzy sets
 	{
-		float cal = GetFiringPoint(functions[offset + i*2], values[i]);
+		float cal = GetFiringPoint(functions[offset + (i/2)*3], values[i]);
 		if (min > cal)
 			min = cal;
 	}
@@ -127,7 +128,7 @@ void ADoor::Tick( float DeltaTime )
 
 	float values[] =
 	{
-		Temprature, Humidity, CO2
+		Temprature, OutsideTemprature, Humidity, OutsideHumidity, CO2
 	};
 
 	int inTemp, outTemp, inHumi, outHumi, inCO2, outCO2;
@@ -140,9 +141,19 @@ void ADoor::Tick( float DeltaTime )
 
 	bool isOpen = IsOpen(inTemp, outTemp, inHumi, outHumi);
 
+
+	int numMemfuncs = 3;
+	int numFuzzySets = 4;
+
 	std::vector<float> alpha;
-	for(unsigned i = 0; i < 3; ++i)
-		alpha.push_back(FindMinFiringPoint(functions, i, values));
+	for(unsigned i = 0; i < numMemfuncs; ++i)
+		alpha.push_back(FindMinFiringPoint(functions, i, values)); // calcuate Ai ^ Bi ^ ...
+
+	std::vector<float> ai, bi, ci, di;
+	for (unsigned i = 0; i < numMemfuncs; ++i)
+	{
+		float a = functions[i].desc.
+	}
 }
 
 TSFuzzySystem::TSFuzzySystem()
