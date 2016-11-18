@@ -18,6 +18,7 @@ void ADoor::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	// co2, temp, humid
 	condition initialCondition(100.f, 20.f, 30.f);
 	condition increaseRate(1, 1, 1);
 	
@@ -68,9 +69,17 @@ void ADoor::BeginPlay()
 	Close.desc.push_back(0);
 	Close.desc.push_back(90.f);
 
+	HalfOpen.desc.push_back(0);
+	HalfOpen.desc.push_back(45.f);
+	HalfOpen.desc.push_back(90.f);
+
 	Open.desc.push_back(0);
 	Open.desc.push_back(90.f);
 	Open.desc.push_back(90.f);
+
+	Temprature = 23.f;
+	Humidity = 30.f;
+	CO2 = 1000.f;
 }
 
 int NominalToScale(MembershipFunction functions[], int offset, float value)
@@ -80,7 +89,7 @@ int NominalToScale(MembershipFunction functions[], int offset, float value)
 
 	for (int i = offset; i < offset + 3; ++i)
 	{
-		float cal = GetFiringPoint(functions[i], value);
+		float cal = GetY(functions[i], value);
 		if (max < cal)
 		{
 			max = cal;
@@ -94,21 +103,38 @@ float FindMinFiringPoint(MembershipFunction functions[], int offset, float value
 {
 	float min = FLT_MAX;
 
-	for (int i = 0; i < 2; ++i)
+	for (int i = 0; i < 3; ++i)
 	{
-		float cal = GetFiringPoint(functions[offset + i*2], values[i]);
+		float value = values[i];
+		float cal = GetY(functions[offset + i*3], value);
 		if (min > cal)
 			min = cal;
 	}
 	return min;
 }
 
-bool IsOpen(int inTemp, int outTemp, int inHumi, int outHumi)
+bool IsOpen(int inTemp, int inHumi)
 {
-	int temp = inTemp != 2 ? abs(outTemp - inTemp) : 0;
-	int humi = (outHumi - inHumi) * 2;
+	//int temp = inTemp != 2 ? abs(inTemp) : 0;
+	//int humi = (inHumi) * 2;
+	//
+	//return temp + humi >= 2;
 
-	return temp + humi >= 2;
+	// Mamdani fuzzification
+	return false;
+}
+
+void InsertToMap(MAPFLOAT& m, float key, float value)
+{
+	MAPFLOAT::iterator finder = m.find(key);
+	
+	if (finder != m.end())
+	{
+		finder->second = max(value, finder->second);
+		return;
+	}
+
+	m.insert(MAPFLOAT::value_type(key, value));
 }
 
 // Called every frame
@@ -130,19 +156,51 @@ void ADoor::Tick( float DeltaTime )
 		Temprature, Humidity, CO2
 	};
 
-	int inTemp, outTemp, inHumi, outHumi, inCO2, outCO2;
+	int inTemp, inHumi, inCO2;
 	inTemp = NominalToScale(functions, 0, Temprature);
-	outTemp = NominalToScale(functions, 0, Temprature);
 	inHumi = NominalToScale(functions, 3, Humidity);
-	outHumi = NominalToScale(functions, 3, Humidity);
 	inCO2 = NominalToScale(functions, 6, CO2);
-	outCO2 = NominalToScale(functions, 6, CO2);
 
-	bool isOpen = IsOpen(inTemp, outTemp, inHumi, outHumi);
+	bool isOpen = IsOpen(inTemp, inHumi);
 
 	std::vector<float> alpha;
 	for(unsigned i = 0; i < 3; ++i)
 		alpha.push_back(FindMinFiringPoint(functions, i, values));
+
+	MembershipFunction FuzzyContorller[] =
+	{
+		Close, HalfOpen, Open
+	};
+
+	MAPFLOAT areaValues, areaDeltaValues;
+	
+	float top = 0, bottom = 0;
+	for (unsigned i = 0; i < 3; ++i)
+	{
+		// begin, end, delta increase
+		float current = FuzzyContorller[i].desc[0];
+		float targetValue = FuzzyContorller[i].GetLast();
+		float delta = (targetValue - current) / 100.f;
+
+		while (current <= targetValue)
+		{
+			float value = std::min(alpha[i], GetY(FuzzyContorller[i], current));
+			float deltaPiece = value * delta;
+			InsertToMap(areaValues, current, value);
+			InsertToMap(areaDeltaValues, current, deltaPiece);
+			current += delta;
+		}
+		
+		for (const auto& value : areaDeltaValues)
+			top += value.second;
+
+		for (const auto& value : areaValues)
+			bottom += value.second;
+	}
+	float cog = top / bottom;
+	cog += 1;
+	// sum = integral area
+	
 }
 
 TSFuzzySystem::TSFuzzySystem()
@@ -167,11 +225,11 @@ void TSFuzzySystem::Register(string name, MembershipFunction membershipfunc)
 	}
 }
 
-float GetFiringPoint(const MembershipFunction& memfunc, float value)
+float GetY(const MembershipFunction& memfunc, float value)
 {
 	if (memfunc.desc.size() < 3)
 		return -1.f;
-
+		
 	if (((memfunc.desc[0] == memfunc.desc[1]) && value <= memfunc.desc[0]) ||
 		((memfunc.desc[memfunc.desc.size() - 2] == memfunc.desc[memfunc.desc.size() - 1]) && value >= memfunc.desc[memfunc.desc.size() - 1]))
 		return 1.f;

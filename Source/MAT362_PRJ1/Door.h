@@ -4,6 +4,8 @@
 
 #include <vector>
 #include <map>
+#include <utility>
+#include <set>
 #include <string>
 #include "GameFramework/Actor.h"
 #include "Door.generated.h"
@@ -17,6 +19,8 @@ struct MembershipFunction
 	float GetLast() { if (desc.empty()) return -1.f; return desc[desc.size() - 1]; }
 };
 
+typedef set < pair<float, float> > SETPAIRFLOAT;
+typedef map < float, float > MAPFLOAT;
 typedef vector<MembershipFunction> VMEMBERSHIPFUNCTION;
 typedef map<string, VMEMBERSHIPFUNCTION> MAPVMEMBERSHIPFUNCTION;
 
@@ -54,7 +58,7 @@ private:
 	MAPVMEMBERSHIPFUNCTION systemDesc;
 };
 
-float GetFiringPoint(const MembershipFunction& memfunc, float value);
+float GetY(const MembershipFunction& memfunc, float value);
 
 UCLASS()
 class MAT362_PRJ1_API ADoor : public AActor
@@ -77,14 +81,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Environment)
 	float Temprature;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Environment)
-	float OutsideHumidity;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Environment)
-	float OutsideTemprature;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Environment)
 	float doorAngle;
 
 	MembershipFunction tempCold, tempNormal, tempHot;
 	MembershipFunction humidityLow, humidityNormal, humidityHigh;
 	MembershipFunction CO2Normal, CO2NotGood, CO2Danger;
-	MembershipFunction Close, Open;
+	MembershipFunction Close, HalfOpen, Open;
 };
